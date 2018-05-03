@@ -1,0 +1,78 @@
+﻿mysql修復方法
+
+1.service mysqld stop
+
+2.myisamchk -r -f -o -q *****.MYI
+
+-f ->如果myisamchk发现表内有任何错误，m
+则自动进行修复。维护类型与-r选项指定的相同。
+
+-r ->可以修复几乎所有一切问题，除非唯一的键不唯一时
+(对于MyISAM表，这是非常不可能的情况)。如果你想要恢复表，
+这是首先要尝试的选项。如果myisamchk报告表不能用-r恢复，
+则只能尝试-o。如果你有大量内存，你应增加sort_buffer_size的值
+
+-q ->不修改数据文件，快速进行修复。出现复制键时
+，你可以两次指定该项以强制myisamchk修改原数据文件。
+
+-o -> 使用一个老的恢复方法读取，按顺序读取所有行，
+并根据找到的行更新所有索引树。这比-r慢些
+，但是能处理-r不能处理的情况。该恢复方法使用的硬盘空间比-r少。
+一般情况，你应首先用-r维修，如果-r失败则用-o。
+如果你有大量内存，你应增加sort_buffer_size的值。
+
+一.[warning] Buffered Warning : could not increase number of max_open_files
+to more than 1024 (request:5000)
+(1) vi /etc/security/limits.conf
+mysql soft nofile 5000
+mysql hard nofile 5000
+(2)vi /usr/lib/systemd/system/mysqld.service
+LimitNOFILE=5000
+LimitNPROC=5000
+(3)vi /etc/my.cnf
+open_files_limit=5000
+
+二.sql_mode=NO_ENGINE_SUBSTITUTION
+三.如果當預設值無法複寫，/usr/my.cnf請刪掉
+
+
+MASTER and SLAVE
+
+一.my.cnf設置
+(1).binlog_format=MIXED
+(① STATEMENT模式（SBR）
+每一条会修改数据的sql语句会记录到binlog中。优点是并不需要记录每一条sql语句和每一行的数据变化，减少了binlog日志量，节约IO，提高性能。缺点是在某些情况下会导致master-slave中的数据不一致(如sleep()函数， last_insert_id()，以及user-defined functions(udf)等会出现问题)
+② ROW模式（RBR）
+不记录每条sql语句的上下文信息，仅需记录哪条数据被修改了，修改成什么样了。而且不会出现某些特定情况下的存储过程、或function、或trigger的调用和触发无法被正确复制的问题。缺点是会产生大量的日志，尤其是alter table的时候会让日志暴涨。
+③ MIXED模式（MBR）(較常使用)
+以上两种模式的混合使用，一般的复制使用STATEMENT模式保存binlog，对于STATEMENT模式无法复制的操作使用ROW模式保存binlog，MySQL会根据执行的SQL语句选择日志保存方式
+
+(2)log-slave-updates  #当Slave从Master数据库读取日志时更新新写入日志中，如果只启动log-bin 而没有启动log-slave-updates则Slave只记录针对自己数据库操作的更新。
+
+(3)reset slave; or reset master; 清除master or slave 緩存
+二.mysql5.7
+帳號安全機制移除uninstall plugin validate_password;
+
+三.slave_exec_mode=IDEMPOTENT
+在多主大型复制系统中建议使用IDEMPOTENT值
+
+四.slave支持crash-safe. 该功能可以解决之前版本中系统异常断电可能导致的SQL thread 信息不准确的问题
+
+五.Semisynchronous Replication 配置和参数说明 
+优点：当事务返回成功给客户端时，则事务至少在两台机器上存在，增强数据安全性。相比异步模式和全同步模式，是一种折中。
+缺点：半同步的确会对数据库性能有一定影响，因为事务的提交必须等待slave 反馈。性能损耗取决于tcp/IP 网络传输时间，也即传输已提交事务和等待slave 反馈已经接收事务的时间。
+
+mysql> INSTALL PLUGIN rpl_semi_sync_master SONAME 'semisync_master.so';
+mysql> INSTALL PLUGIN rpl_semi_sync_slave SONAME 'semisync_slave.so';
+rpl_semi_sync_master_enabled=1
+rpl_semi_sync_master_timeout=1000
+rpl_semi_sync_slave_enabled=1
+
+六. my.cnf 加上 report_host=*
+
+七. 創建帳戶時需要加上WITH GRANT OPTION;
+ 
+八.做同步盡量採用GGID 達到醫治姓
+gtid-mode = on
+log-slave-updates=ON
+enforce-gtid-consistency=ON
