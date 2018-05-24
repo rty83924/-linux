@@ -1,0 +1,9 @@
+1.備份 tar -czvpf wsiback_el6.tgz / --exclude=/proc --exclude=/etc/fstab --exclude=/sys --exclude=/media --exclude=/etc/grub.conf --exclude=/boot --exclude=/tmp --exclude=/lost+found --exclude=/home --exclude=/mnt --exclude=/dev 
+#要排除備份檔案
+#參數p(根據原本權限)
+2.還原 tar -zxvpf wsiback_el6.tgz -C /
+#-C 指定覆蓋附錄
+3.記住 很重要 在reboot前先 grub-install /dev/sda
+#避免內核設定出錯，上保險
+4.重新啟動成功時 yum -y install kernel
+#更新內核
