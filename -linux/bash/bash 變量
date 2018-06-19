@@ -19,3 +19,28 @@ $0
 Shell本身的文件名 
 $1～$n 
 添加到Shell的各参数值。$1是第1参数、$2是第2参数…。 
+
+1 #!/bin/bash
+ 2 #
+ 3 printf "The complete list is %s\n" "$$"
+ 4 printf "The complete list is %s\n" "$!"
+ 5 printf "The complete list is %s\n" "$?"
+ 6 printf "The complete list is %s\n" "$*"
+ 7 printf "The complete list is %s\n" "$@"
+ 8 printf "The complete list is %s\n" "$#"
+ 9 printf "The complete list is %s\n" "$0"
+10 printf "The complete list is %s\n" "$1"
+11 printf "The complete list is %s\n" "$2
+结果：
+
+[Aric@localhost ~]$ bash params.sh 123456 QQ
+The complete list is 24249
+The complete list is
+The complete list is 0
+The complete list is 123456 QQ
+The complete list is 123456
+The complete list is QQ
+The complete list is 2
+The complete list is params.sh
+The complete list is 123456
+The complete list is QQ
