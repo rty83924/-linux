@@ -1,6 +1,7 @@
 #!/bin/bash
 
-if [ $1 == 'create_ip'];then
+case $1 in
+'create_ip' )
         read -p "Enter your mail :" mail_u
         echo "mail_u=${mail_u}" > ./paping.conf
         read -p "Enter server quantity :" server_q
@@ -12,19 +13,32 @@ if [ $1 == 'create_ip'];then
                         read -p "server port :" server_pt
                         echo "pt[${i}]=${server_pt}" > ./paping.conf
                 done
-fi
+        ;;
+'install' )
+        ping -c 1 8.8.8.8 > /dev/null
+        if [ $? -eq 0 ];then
+                wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/paping/paping_1.5.5_x86-64_linux.tar.gz
+                if [ -f "./paping_1.5.5_x86-64_linux.tar.gz" ];then
+ 			tar -zxvf paping_1.5.5_x86-64_linux.tar.gz
+                        chmod 755 paping
+                        mv ./paping /bin/
+                fi
+        else
+                echo 'Unable to connect to the internet'
+        fi
+        ;;
+esac
 
-ping -c 1 192.168.0.1 > /dev/null
-
-if [ $? -eq 0 ];then
-        echo 'ok' > /dev/null
+if [ -f "/bin/paping" ];theb
+        echo 'OK' > /dev/null
 else
-        exit 1
+        echo "Enter ./paping.sh install"
 fi
 
 if [ -f "./paping.conf" ];then
         echo 'OK' > /dev/null
 else
+        echo "Enter ./paping.sh create_ip"
         exit 1
 fi
 
