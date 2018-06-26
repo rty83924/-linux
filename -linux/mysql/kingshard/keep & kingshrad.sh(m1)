@@ -3,16 +3,22 @@
 #!/bin/bash
 tes=$(ssh root@${argsmip} "cat /etc/keepalived/keepalived.conf"|grep '^priority'|cut -d " " -f 2)
 Cat_Mip=$(cat ./log/master_ip)
+cat_k_root=$(cat ./config |grep '^kingroot' |cut -d "=" -f 2)
+cat_k_pass=$(cat ./config |grep '^kingpass' |cut -d "=" -f 2)
 function kingshard_status() {
-        mysql -u wsi -pwsi -h 127.0.0.1 --port 3306 -e"admin server(opt,k,v) values('show','node','config')"
+        mysql -u ${kingroot} -p${kingpass} -h 127.0.0.1 --port 3306 -e"admin server(opt,k,v) values('show','node','config')"
 }
-function error () {
+function error() { 
         echo -n "2>> ${path}/log/error.log"
 }
 
 if [ "$1" == "create_ip" ];then
         echo '###############' > ./config
-        echo "The first use, first of each server ssh rsa2 key CP to ~/.ssh & Please save the same path for each server !" 
+        echo "The first use, first of each server ssh rsa2 key CP to ~/.ssh & Please save the same path for each server !"
+        read -p "Please enter kingshard user :" kingroot
+        echo "kingroot=${kingroot}" >> ./config
+        read -p "Please enter kingshrad password :" kingpass
+        echo "kingpass=${kingpass}" >> ./config
         read -p "Please enter script PATH :" path
         read -p "Please enter sql server quantity! :" qu
         read -p "Please enter master server & spare server quantity! :" mqu
@@ -84,6 +90,7 @@ if [ "$1" == "create_ip" ];then
         done
         exit 0
 fi
+
 for args in $@
 do
 case ${args} in
@@ -109,14 +116,14 @@ case ${args} in
                 argsmip=$(echo "${args}" |cut -d "=" -f 2)
                 cat_king=$(kingshard_status|grep "${argsmip}"|grep "slave"|grep "up")
                 if [ ${cat_king} != "" ];then
-                        mysql -u wsi -pwsi -h 127.0.0.1 -e"admin node(opt,node,k,v) values('down','node1','slave','${argsmip}')" $(error)
+                        mysql -u ${kingroot} -p${kingpass} -h 127.0.0.1 -e"admin node(opt,node,k,v) values('down','node1','slave','${argsmip}')" $(error)
                 fi
                 ;;
         startup_slave=* )
                 argsmip=$(echo "${args}" |cut -d "=" -f 2)
                 cat_king=$(kingshard_status||grep "${argsmip}"|grep "slave"|grep "down")
                 if [ ${cat_king} != "" ];then
-                        mysql -u wsi -pwsi -h 127.0.0.1 -e"admin node(opt,node,k,v) values('up','node1','slave','${argsmip}')" $(error)
+                        mysql -u ${kingroot} -p${kingpass} -h 127.0.0.1 -e"admin node(opt,node,k,v) values('up','node1','slave','${argsmip}')" $(error)
                 fi
                 ;;
         --help | "" )
