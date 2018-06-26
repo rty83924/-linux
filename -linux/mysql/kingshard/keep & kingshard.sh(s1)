@@ -1,13 +1,19 @@
-keepalived & kingshard slave 端 切換 shell
+keepalived & kingshard slave
+請放在 /BASH/ 目錄裡面
+
 
 #!/bin/bash
-test=$(grep -r ^priority /etc/keepalived/keepalived.conf |awk '{print $2}')
+#test=$(grep -r ^priority /etc/keepalived/keepalived.conf |awk '{print $2}')
+catkeep=$(cat /etc/keepalived/keepalived.conf |grep '^priority'|cut -d " " -f 2)
 CatValue=$(cat /BASH/priority)
-if [ $1 == "change_keep_master" ];then
+ 
+if [ $1 == 'change_keep_master' ];then
+echo "${catkeep}" >> ./old_value
 sed -i 's/^priority '${test}'/priority 254/g' /etc/keepalived/keepalived.conf
 systemctl reload keepalived
-elif [ $1 == "change_keep_slave" ];then
-sed -i 's/^priority '${test}'/priority '${CatValue}'/g' /etc/keepalived/keepalived.conf
+elif [ $1 == 'change_keep_slave' ];then
+old_value=$(cat ./old_value)
+sed -i 's/^priority '${test}'/priority '${old_value}'/g' /etc/keepalived/keepalived.conf
 systemctl reload keepalived
 fi
 
