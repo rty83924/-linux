@@ -1,0 +1,126 @@
+切換keepalived vip master 的主要程式
+
+#!/bin/bash
+tes=$(ssh root@${argsmip} "cat /etc/keepalived/keepalived.conf"|grep '^priority'|cut -d " " -f 2)
+Cat_Mip=$(cat ./log/master_ip)
+function kingshard_status() {
+        mysql -u wsi -pwsi -h 127.0.0.1 --port 3306 -e"admin server(opt,k,v) values('show','node','config')"
+}
+function error () {
+        echo -n "2>> ${path}/log/error.log"
+}
+
+if [ "$1" == "create_ip" ];then
+        echo '###############' > ./config
+        echo "The first use, first of each server ssh rsa2 key CP to ~/.ssh & Please save the same path for each server !" 
+        read -p "Please enter script PATH :" path
+        read -p "Please enter sql server quantity! :" qu
+        read -p "Please enter master server & spare server quantity! :" mqu
+        read -p "Please enter keepalived vIP! :" keep
+        echo "path=${path}" >> ./config
+        echo "qu=${qu}" >> ./config
+        echo "mqu=${mqu}" >> ./config
+        echo "keep=${keep}" >> ./config
+        read -p "Please enter your E-mail :" emil
+        echo "mail=${emil}" >> ./config
+#        sed -i "2i\mail="${emil}"" ${path}/config
+        read -p "Please enter change master time :" cha_date
+        echo "change_date=${cha_date}" >> ./config
+#        sed -i "2i\change_date="${chti}"" ${path}/config
+#        sed -i "2i\path="${path}"" ${path}/config
+#        sed -i "2i\qu="${qu}"" ${path}/config
+#        sed -i "2i\mqu="${mqu}"" ${path}/config
+#        sed -i "2i\keep="${keep}"" ${path}/config
+        for (( i=1; i<=${qu}; i=i+1 ))
+        do
+        if [ "${i}" -eq 1 ];then
+                read -p "Please enter the main one master IP${i} :" ip1
+                echo "ip[${i}]=${ip1}" >> ./config
+#               sed -i "5i\ip[${i}]="${ip1}"" ${path}/config
+                read -p "Please enter the server PORT :" pt1
+                echo "port[${i}]=${pt1}" >> ./config
+#                sed -i "5i\port[${i}]="${pt1}"" ${path}/config
+                read -p "Please enter the sql user :" us1
+                read -p "Please enter the sql password :" pw1
+                expect -c "
+                spawn mysql_config_editor set --login-path=sql${ip1}${pt1} --user=${us1} --host=${ip1} --port=${pt1} --password
+                expect \"Enter password:\"
+                send \"$pw1\r\"
+                expect ]#
+                "
+                continue
+        fi
+        if [ "${i}" -le ${mqu} ];then
+                read -p "Please enter master IP${i} :" ip2
+                echo "ip[${i}]=${ip2}" >> ./config
+#                sed -i "8i\ip[${i}]="${ip2}"" ${path}/config
+                read -p "Please enter the server PORT :" pt2
+                echo "port[${i}]=${pt2}" >> ./config
+#                sed -i "8i\port[${i}]="${pt2}"" ${path}/config
+                read -p "Please enter the sql user :" us2
+                read -p "Please enter the sql password :" pw2
+                expect -c "
+                spawn mysql_config_editor set --login-path=sql${ip2}${pt2} --user=${us2} --host=${ip2} --port=${pt2} --password
+                expect \"Enter password:\"
+                send \"$pw2\r\"
+                expect ]#
+                "
+        else
+                read -P "Please enter slave IP${i} :" ip3
+                echo "ip[${i}]=${ip3}" >> ./config
+#                sed -i "10i\ip[${i}]="${ip3}"" ${path}/config
+                read -p "Please enter the server PORT :" pt3
+                echo "port[${i}]=${pt3}" >> ./config
+#                sed -i "10i\port[${i}]="${pt3}"" ${path}/config
+                read -p "Please enter the sql user :" us3
+                read -p "Please enter the sql password :" pw3
+                expect -c "
+                spawn mysql_config_editor set --login-path=sql${ip3}${pt3} --user=${us3} --host=${ip3} --port=${pt3} --password
+                expect \"Enter password:\"
+                send \"$pw3\r\"
+                expect ]#
+                "
+        fi
+        done
+        exit 0
+fi
+for args in $@
+do
+case ${args} in
+        change_master=* )
+                argsmip=$(echo "${args}" |cut -d "=" -f 2)
+                if [ "${argsmip}" != ${Cat_Mip} ];then
+                        value=$(( ${tes} * 10 ))
+                        ssh root@${argsmip} "sed -i 's/^priority '${tes}'/priority '${n_priority_par}'/g' /etc/keepalived/keepalived.conf" $(error)
+                else
+                        echo "${argsmip} NOT KeepSlave"
+                fi
+                ;;
+        change_slave=* )
+                argsmip=$(echo "${args}" |cut -d "=" -f 2)
+                if [ "${argsmip}" == ${Cat_Mip} ];then
+                        value=$(( ${tes} / 10 ))
+                        ssh root@${argsmip} "sed -i 's/^priority '${tes}'/priority '${n_priority_par}'/g' /etc/keepalived/keepalived.conf" $(error)
+                else
+                        echo "${argsmip} NOT KeepMaster"
+                fi
+                ;;
+        shutdown_slave=* )
+                argsmip=$(echo "${args}" |cut -d "=" -f 2)
+                cat_king=$(kingshard_status|grep "${argsmip}"|grep "slave"|grep "up")
+                if [ ${cat_king} != "" ];then
+                        mysql -u wsi -pwsi -h 127.0.0.1 -e"admin node(opt,node,k,v) values('down','node1','slave','${argsmip}')" $(error)
+                fi
+                ;;
+        startup_slave=* )
+                argsmip=$(echo "${args}" |cut -d "=" -f 2)
+                cat_king=$(kingshard_status||grep "${argsmip}"|grep "slave"|grep "down")
+                if [ ${cat_king} != "" ];then
+                        mysql -u wsi -pwsi -h 127.0.0.1 -e"admin node(opt,node,k,v) values('up','node1','slave','${argsmip}')" $(error)
+                fi
+                ;;
+        --help | "" )
+                echo $(cat ${path}/README.txt)
+                ;;
+esac
+done
