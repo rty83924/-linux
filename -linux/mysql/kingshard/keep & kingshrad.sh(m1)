@@ -96,21 +96,18 @@ do
 case ${args} in
         change_master=* )
                 argsmip=$(echo "${args}" |cut -d "=" -f 2)
-                if [ "${argsmip}" != ${Cat_Mip} ];then
-                        value=$(( ${tes} * 10 ))
-                        ssh root@${argsmip} "sed -i 's/^priority '${tes}'/priority '${n_priority_par}'/g' /etc/keepalived/keepalived.conf" $(error)
-                else
-                        echo "${argsmip} NOT KeepSlave"
-                fi
+                #ssh root@${argsmip} "sed -i 's/^priority '${tes}'/priority '${n_priority_par}'/g' /etc/keepalived/keepalived.conf" $(error)
+                ssh root@${argsmip} "/bin/bash /BASH/keepalived.sh change_keep_master"
                 ;;
         change_slave=* )
                 argsmip=$(echo "${args}" |cut -d "=" -f 2)
-                if [ "${argsmip}" == ${Cat_Mip} ];then
-                        value=$(( ${tes} / 10 ))
-                        ssh root@${argsmip} "sed -i 's/^priority '${tes}'/priority '${n_priority_par}'/g' /etc/keepalived/keepalived.conf" $(error)
-                else
-                        echo "${argsmip} NOT KeepMaster"
-                fi
+                #if [ "${argsmip}" == ${Cat_Mip} ];then
+                #        value=$(( ${tes} / 10 ))
+                #        ssh root@${argsmip} "sed -i 's/^priority '${tes}'/priority '${n_priority_par}'/g' /etc/keepalived/keepalived.conf" $(error)
+                #else
+                #        echo "${argsmip} NOT KeepMaster"
+                #fi
+                ssh root@${argsmip} "/bin/bash /BASH/keepalived.sh change_keep_master"
                 ;;
         shutdown_slave=* )
                 argsmip=$(echo "${args}" |cut -d "=" -f 2)
