@@ -1,0 +1,7 @@
+master 用 shell 請放在 kingshard 伺服器 /BASH/ 資料夾
+
+slave 用 shell 請放在 所有sql server /BASH/ 資料夾
+
+請事先設定好ssh key
+
+keepalived vip 值最高不要超過 254
