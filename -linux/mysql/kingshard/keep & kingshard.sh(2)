@@ -1,0 +1,113 @@
+#!/bin/bash
+function par(){
+        echo -n "$(cat ../config)"
+}
+
+path=$(echo "$(par)"|grep '^path' |cut -d "=" -f 2)
+qu=$(echo "$(par)"|grep '^qu' |cut -d "=" -f 2)
+mqu=$(echo "$(par)"|grep '^mqu' |cut -d "=" -f 2)
+keep=$(echo "$(par)"|grep '^keep' |cut -d "=" -f 2)
+catchmip=$(cat ${path}/log/replication_status.log |grep "change_slave" |grep "OK"|tail -n 1 |cut -d ":" -f 2)
+catchmpt=$(cat ${path}/log/replication_status.log |grep "change_slave" |grep "OK"|tail -n 1 |cut -d ":" -f 3)
+LOG=$(cat ${path}/log/times.log)
+date=$(date +%H%M)
+change_date=$(echo "${par}"|grep "change_date"|cut -d "=" -f 2)
+Sql_rep='Slave_SQL_Running: Yes'
+Io_rep='Slave_IO_Running: Yes'
+kingshard=$(pgrep -f kingshard)
+master_ip=$(cat ${path}/log/master_ip)
+function status() {
+        echo -n"${date}:${ip[${i}]}:${port[${i}]}"
+}
+keepmip=$(cat ${path}/log/master_ip|cut -d ":" -f 1)
+keepmpt=$(cat ${path}/log/master_ip|cut -d ":" -f 2)
+for (( i=1; i<=${qu}; i++ ))
+do
+        ip[${i}]=$(cat ${path}/config |grep ip${i} |cut -d "=" -f 2)
+        port[${i}]=$(echo "$(par)"|grep port${i} |cut -d "=" -f 2)
+        ssh root@${ip[${i}]} "ip a |grep ${keep}" |grep ${keep} >> test2.log
+        if [ $? -eq 0 ];then
+                export keepip=${ip[${i}]}
+                export keeppt=${port[${i}]}
+                echo "${ip[${i}]}"':'"${port[${i}]}" > ${path}/log/master_ip
+        fi
+
+done
+ping -c1 8.8.8.8 > /dev/null
+if [ $? -eq 0 ];then
+        echo 'ping www.google.com oK'
+else
+        echo 'ping www.google.com not ok'
+        exit 0
+fi
+
+for (( i=1; i<=${qu}; i=i+1 ))
+do
+        sql_test[${i}]=$(mysql --login-path=sql${ip[${i}]}${port[${i}]} -e'show slave status\G'|grep "${Sql_rep}")
+        io_test[${i}]=$(mysql --login-path=sql${ip[${i}]}${port[${i}]} -e'show slave status\G'|grep "${Io_rep}")
+        slave_running[${i}]=$(mysql --login-path=sql${ip[${i}]}${port[${i}]} -e'show slave status\G'|grep -i 'Slave_SQL_Running_State' |grep -i 'Slave has read all relay log')
+        mysql_status[${i}]=$(ssh root@${ip[${i}]} "pgrep -f mysqld")
+done
+
+for (( i=1; i<=${qu}; i=i+1 ))
+do
+        if [ "${ip[${i}]}" == "${keepmip}" ];then
+                if [ "${mysql_status[${i}]}" != "" ];then
+                        echo "master_status$(status):OK" >> ${path}/log/service_status.log
+                        continue
+                else
+                                        echo "master_status$(status):NOTOK" >> ${path}/log/service_status.log
+                        break
+                fi
+        fi
+        if [ "${mysql_status[${i}]}" != "" ];then
+                if [ ${i} -le ${mqu} ];then
+                        echo "change_status$(status):OK" >> ${path}/log/service_status.log
+                else
+                        echo "slave_status$(status):OK" >> ${path}/log/service_status.log
+                fi
+        else
+                if [ ${i} -le ${mqu} ];then
+                        echo "change_status$(status):NOTOK" >> ${path}/log/service_status.log
+                else
+                        echo "slave_status$(status):NOTOK" >> ${path}/log/service_status.log
+                fi
+        fi
+done
+
+mysql_m_down=$(cat ${path}/log/service_status.log|tail -n ${qu}|grep "${keepmip}"|grep -n 'NOTOK$'|cut -d "=" -f 2)
+if [ "${mysql_m_down}" != "" ];then
+        for (( i=1; i<=${mqu}; i=i+1 ))
+        do
+                if [ "${sql_test[${i}]}" != "" -a "${io_test[${i}]}" != "" -a "${slave_running[${i}]}" != "" ];then
+                        ${path}/repking.sh change_master=${ip[${i}]} change_slave=${master_ip} shutdown_slave=${keepmip}:${keeppt}
+                        sed -i "${mysql_m_down}s/$/&=>OK/g" ${path}/replication_error.log
+                        export keepip="${ip[${i}]}"
+                        export keeppt="${port[${i}]}"
+                        echo "${ip[${i}]}"':'"${port[${i}]}" > ${path}/log/master_ip
+                elif [ "${sql_test[${i}]}" == "" -o "${io_test[${i}]}" == "" ];then
+                                continue
+                fi
+        done
+        ${path}/repking.sh change_slave=${mysql_m_down}
+        exit 0
+fi
+
+for (( i=1; i<=${qu}; i=i+1 ))
+do
+        catreplog=$(cat ${path}/log/replication_error.log|grep "${ip[${i}]}"|grep -n 'NOTOK$')
+        if [ "${sql_test[${i}]}" == "" -o "${io_test[${i}]}" == "" ] && [ "${ip[${i}]}" != "${keepmip}" -a "${catreplog}" == "" ];then
+                ${path}/repking.sh shutdown_slave=${ip[${i}]}:${port[${i}]}
+                echo "replication$(status)=NOTOK" >> ${path}/log/replication_error.log
+        fi
+        if [ "${sql_test[${i}]}" != "" -a "${io_test[${i}]}" != "" -a "${slave_running[${i}]}" != "" ] && [ "${catreplog}" != "" ];then
+                ${path}/repking.sh start_slave=${ip[${i}]}:${port[${i}]}
+                sed -i "${catreplog}s/$/&=>OK/g" ${path}/replication_error.log
+        fi
+done
+
+if [ "${change_date}" == ${date} ];then
+        if [ ${sql_test[1]} != "" -a ${io_test[1]} != "" -a ${slave_status[1]} != "" ];then
+                ${path}/kepking.sh change_master=${ip[1]} change_slave=${keepmip}
+        fi
+fi
