@@ -44,3 +44,15 @@ The complete list is 2
 The complete list is params.sh
 The complete list is 123456
 The complete list is QQ
+
+二.&& / ||
+command1  && command2
+ 
+&&左边的命令（命令1）返回真(即返回0，成功被执行）后，&&右边的命令（命令2）才能够被执行；换句话说，“如果这个命令执行成功&&那么执行这个命令”。 
+语法格式如下
+cp ~/Desktop/1.txt ~/1.txt && rm ~/Desktop/1.txt && echo "success"
+
+command1 || command2
+||與&&相反。如果||左邊的命令（命令1）未執行成功，那么就執行||右邊的命令（命令2）
+test@centos:~$ rm ~/Desktop/1.txt || echo "fail"
+在示例 2 中，如果 ~/Desktop 目录下不存在文件 1.txt，将输出提示信息。
